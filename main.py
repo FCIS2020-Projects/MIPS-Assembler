@@ -13,63 +13,72 @@ registers = ["$zero",
              "$fp",
              "$ra"]
 
+labels = {}
+
 
 def main():
     mips_file = open("MIPS.s", "r")
     data_file = open("data.txt", "w+")
     code_file = open("code.txt", "w+")
     content = mips_file.read()
-    labels = get_labels(content)
+    get_labels(content)
 
     parts = re.split(".data|.text", content)
-    data = parts[1].strip().split("\n")
-    code = parts[2].strip().split("\n")
+    data = parts[1].split("\n")
+    code = parts[2].split("\n")
     for i in data:
-        data_file.write(assemble_data(i))
+        machine_code = assemble_data(i)
+        if machine_code is not None:
+            data_file.write(machine_code)
     for i in code:
-        if assemble_code(i) is not None:
-            code_file.write(assemble_code(i))
+        machine_code = assemble_code(i)
+        if machine_code is not None:
+            code_file.write(machine_code)
     mips_file.close()
     data_file.close()
     code_file.close()
 
 
 def get_labels(content):
-    labels = dict()
-    # TODO: get labels and store it in dictionary key = label name, value = address and return it
-    return labels
+    # TODO: fill labels dictionary
+    pass
 
 
 def assemble_data(instruction_line):
+    instruction_line = re.split("#", instruction_line)[0]
     # TODO
     return example_function(instruction_line)
 
 
 def assemble_code(instruction_line):
-    instructions = {
-        "ex": example_function(instruction_line),
-        # "add": add_assemble(instruction_line),
-        # "and": and_assemble(instruction_line),
-        # "sub": sub_assemble(instruction_line),
-        # "nor": nor_assemble(instruction_line),
-        # "or": or_assemble(instruction_line),
-        # "slt": slt_assemble(instruction_line),
-        # "addi": addi_assemble(instruction_line),
-        # "lw": lw_assemble(instruction_line),
-        # "sw": sw_assemble(instruction_line),
-        # "beq": beq_assemble(instruction_line),
-        # "bne": bne_assemble(instruction_line),
-        # "j" : j_assemble(instruction_line),
-    }
     instruction_line = re.split("#", instruction_line)[0]
-    match = re.search("[a-z]+(?= )", instruction_line)
+    instructions = {
+        "add": example_function,
+        # "add": add_assemble,
+        # "and": and_assemble,
+        # "sub": sub_assemble,
+        # "nor": nor_assemble,
+        # "or": or_assemble,
+        # "slt": slt_assemble,
+        # "addi": addi_assemble,
+        # "lw": lw_assemble,
+        # "sw": sw_assemble,
+        # "beq": beq_assemble,
+        # "bne": bne_assemble,
+        # "j" : j_assemble,
+    }
+    match = None
+    for i in instructions.keys():
+        match = re.search(i + "(?= )", instruction_line)
+        if match is not None:
+            break
     if match:
-        return instructions.get(match.group(0))
+        return instructions.get(match.group(0))(instruction_line[match.start():])
     return None
 
 
 def example_function(instruction_line):
-    machine_code = instruction_line
+    machine_code = instruction_line.strip() + "\n"
     return machine_code
 
 
