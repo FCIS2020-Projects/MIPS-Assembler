@@ -1,0 +1,1 @@
+fibs: .space 12        # "array" of 12 words to contain fib values	size: .word  12       # size of "array" 	one:  .word  1	four: .word  4
