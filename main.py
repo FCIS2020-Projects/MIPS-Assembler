@@ -13,21 +13,22 @@ registers = ["$zero",
              "$fp",
              "$ra"]
 
-labels = {}
+labels = dict()
 
 
 def main():
-    mips_file = open("MIPS.s", "r")
+    mips_file = open("MIPS.asm", "r")
     data_file = open("data.txt", "w+")
     code_file = open("code.txt", "w+")
     content = mips_file.read()
-    get_labels(content)
+
+    get_labels(content.split('\n'))
 
     parts = re.split(".data|.text", content)
     data = parts[1].split("\n")
     code = parts[2].split("\n")
     for i in data:
-        machine_code = assemble_data(i)
+        machine_code = assemble_data(i.strip())
         if machine_code is not None:
             data_file.write(machine_code)
     for i in code:
@@ -40,8 +41,18 @@ def main():
 
 
 def get_labels(content):
-    # TODO: fill labels dictionary
-    pass
+    line = 0
+    regex = r"([a-zA-Z_][a-zA-Z0-9_]*):"
+    for item in content:
+        # print(line,"\t",item)
+        if re.findall(regex, item):
+            matches = re.findall(regex, item)
+            for match in matches:
+                if match in labels.keys():
+                    print("Label %s already Exist" % match)
+                else:
+                    labels[match] = line
+        line += 1
 
 
 def assemble_data(instruction_line):
@@ -78,7 +89,7 @@ def assemble_code(instruction_line):
 
 
 def example_function(instruction_line):
-    machine_code = instruction_line.strip() + "\n"
+    machine_code = instruction_line + "\n"
     return machine_code
 
 
