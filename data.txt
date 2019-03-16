@@ -1,6 +1,4 @@
-
-fibs: .space 12        
-size: .word  12       
+fibs: .space 12
+size: .word  12
 one:  .word  1
 four: .word  4
-

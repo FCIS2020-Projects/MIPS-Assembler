@@ -12,7 +12,7 @@
 		lw $t5, size ($zero) 	# load array size
 		lw $t8, one ($zero) 	# load one in $t8
 		lw $t9, four ($zero) 	# load four in $t9 
-		add $t2, $zero, $t8 	# 1 is first and second Fib. number 
+		add $t2, $zero, $t8 	# 1 is first and second Fib. number
 								# (li   $t2, 1)
 		sw $t2, 0($t0) 			# F[0] = 1
 		sw $t2, 4($t0)			# F[1] = F[0] = 1
