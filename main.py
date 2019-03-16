@@ -71,10 +71,10 @@ class Assembler:
         instructions = {
             "add": self.add_assemble,
             "and": self.and_assemble,
-            # "sub": self.sub_assemble,
-            # "nor": self.nor_assemble,
-            # "or": self.or_assemble,
-            # "slt": self.slt_assemble,
+            "sub": self.sub_assemble,
+            "nor": self.nor_assemble,
+            "or": self.or_assemble,
+            "slt": self.slt_assemble,
             # "addi": self.addi_assemble,
             # "lw": self.lw_assemble,
             # "sw": self.sw_assemble,
@@ -94,30 +94,45 @@ class Assembler:
                 machine_code += instructions.get(match.group(0))(i[match.start():])
         return machine_code
 
-    def rs_rt_rd(self, instruction_line):
-        add_line = re.split(r",\s*|\s", instruction_line)
+    def Get_R_Operands(self, instruction_line):
+        line = re.split(r",\s*|\s", instruction_line)
 
-        rd = self.registers.index(str(add_line[1]).strip())
-        rs = self.registers.index(str(add_line[2]).strip())
-        rt = self.registers.index(str(add_line[3]).strip())
+        rd = self.registers.index(str(line[1]).strip())
+        rs = self.registers.index(str(line[2]).strip())
+        rt = self.registers.index(str(line[3]).strip())
 
         return rs, rt, rd
 
-    def add_assemble(self, instruction_line):
-
-        rs, rt, rd = self.rs_rt_rd(instruction_line)
-        mc_ode = bin(0).replace("0b", "").zfill(6) + bin(rs).replace("0b", "").zfill(5) + \
+    def R_Machine_Code(self,instruction_line, func):
+        rs, rt, rd = self.Get_R_Operands(instruction_line)
+        R_machinecode = bin(0).replace("0b", "").zfill(6) + bin(rs).replace("0b", "").zfill(5) + \
                  bin(rt).replace("0b", "").zfill(5) + bin(rd).replace("0b", "").zfill(5) + \
-                 bin(0).replace("0b", "").zfill(5) + bin(32).replace("0b", "").zfill(6) + "\n"
-        return mc_ode
+                 bin(0).replace("0b", "").zfill(5) + bin(func).replace("0b", "").zfill(6) + "\n"
+        return R_machinecode
 
-    def and_assemble(self, instruction_line):
-        rs, rt, rd = self.rs_rt_rd(instruction_line)
+    def add_assemble(self,instruction_line):
+        add_machinecode = self.R_Machine_Code(instruction_line, 32)
+        return add_machinecode
 
-        mc_ode = bin(0).replace("0b", "").zfill(6) + bin(rs).replace("0b", "").zfill(5) + \
-                 bin(rt).replace("0b", "").zfill(5) + bin(rd).replace("0b", "").zfill(5) + \
-                 bin(0).replace("0b", "").zfill(5) + bin(34).replace("0b", "").zfill(6) + "\n"
-        return mc_ode
+    def and_assemble(self,instruction_line):
+        and_machinecode = self.R_Machine_Code(instruction_line, 36)
+        return and_machinecode
+
+    def sub_assemble(self,instruction_line):
+        sub_machinecode = self.R_Machine_Code(instruction_line, 34)
+        return sub_machinecode
+
+    def nor_assemble(self,instruction_line):
+        nor_machinecode = self.R_Machine_Code(instruction_line, 39)
+        return nor_machinecode
+
+    def or_assemble(self,instruction_line):
+        or_machinecode = self.R_Machine_Code(instruction_line, 37)
+        return or_machinecode
+
+    def slt_assemble(self,instruction_line):
+        slt_machinecode = self.R_Machine_Code(instruction_line, 42)
+        return slt_machinecode
 
 
 Assembler("MIPS.asm", "data.txt", "code.txt")
