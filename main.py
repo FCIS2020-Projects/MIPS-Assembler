@@ -22,17 +22,19 @@ class Assembler:
 
         self.content = mips_file.readlines()
         self.clean_file()
-        self.labels = self.get_labels()
         data_index = self.content.index(".data\n")
         code_index = self.content.index(".text\n")
         self.data = self.content[data_index + 1:code_index]
         self.code = self.content[code_index + 1:]
+        self.code_labels = self.get_code_labels()
+        self.data_labels = self.get_data_labels()
 
         machine_code = self.assemble_data()
         data_file.write(machine_code)
 
         machine_code = self.assemble_code()
         code_file.write(machine_code)
+
         mips_file.close()
         data_file.close()
         code_file.close()
@@ -45,12 +47,32 @@ class Assembler:
                 output.append(i.strip() + "\n")
         self.content = output
 
-    def get_labels(self):
+    def get_data_labels(self):
         labels = {}
         line = 0
         regex = r"([a-zA-Z_][a-zA-Z0-9_]*):"
-        for item in self.content:
-            # print(line,"\t",item)
+        for item in self.data:
+            if re.findall(regex, item):
+                matches = re.findall(regex, item)
+                for match in matches:
+                    if match in labels.keys():
+                        print("Label %s already Exist" % match)
+                    else:
+                        labels[match] = line
+            match = re.search(r"(\.\w+) (.*)", item)
+
+            if match[1] == ".word":
+                line += 4 * len(match[2].split(","))
+            elif match[1] == ".space":
+                line += 4 * int(match[2])
+
+        return labels
+
+    def get_code_labels(self):
+        labels = {}
+        line = 0
+        regex = r"([a-zA-Z_][a-zA-Z0-9_]*):"
+        for item in self.code:
             if re.findall(regex, item):
                 matches = re.findall(regex, item)
                 for match in matches:
@@ -64,7 +86,14 @@ class Assembler:
     def assemble_data(self):
         machine_code = ""
         for i in self.data:
-            machine_code += i
+            match = re.search(r"(\.\w+) (.*)", i)
+            if match[1] == ".word":
+                values = match[2].split(",")
+                for j in range(0, len(values)):
+                    machine_code += bin(int(values[j])).replace("0b", "").zfill(32) + "\n"
+            elif match[1] == ".space":
+                for j in range(0, int(match[2])):
+                    machine_code += "".ljust(32, "X") + "\n"
         return machine_code
 
     def assemble_code(self):
@@ -91,11 +120,11 @@ class Assembler:
                     break
 
             if match:
-                machine_code += instructions.get(match.group(0))(i[match.start():])
+                machine_code += instructions.get(match[0])(i[match.start():])
         return machine_code
 
     def Get_R_Operands(self, instruction_line):
-        line = re.split(r",\s*|\s", instruction_line)
+        line = re.split(r"\s*,\s*|\s", instruction_line)
 
         rd = self.registers.index(str(line[1]).strip())
         rs = self.registers.index(str(line[2]).strip())
