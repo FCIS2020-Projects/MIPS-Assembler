@@ -21,11 +21,10 @@ class Assembler:
         code_file = open(code_file_path, "w+")
 
         self.content = mips_file.readlines()
-        self.clean_file()
-        data_index = self.content.index(".data\n")
-        code_index = self.content.index(".text\n")
-        self.data = self.content[data_index + 1:code_index]
-        self.code = self.content[code_index + 1:]
+        self.content=self.clean_file()
+        self.data = self.GetInBetween(".data\n",".text\n")
+        self.code = self.GetInBetween(".text\n",".data\n")
+
         self.code_labels = self.get_code_labels()
         self.data_labels = self.get_data_labels()
 
@@ -36,8 +35,39 @@ class Assembler:
         code_file.write(machine_code)
 
         mips_file.close()
+        mips_file.close()
         data_file.close()
         code_file.close()
+    def GetInBetween(self,first,second):
+        data=[]
+        dOffset=-1
+        cOffset=-1
+
+        while True:
+
+            if first in self.content[dOffset+1:len(self.content)]:
+                dOffset=self.content[dOffset+1:len(self.content)].index(first)+dOffset+1
+                if dOffset==-1 :
+                    dOffset=0
+
+                if second in self.content[dOffset + 1:len(self.content)]:
+                    cOffset = self.content[dOffset + 1:len(self.content)].index(second) + dOffset + 1
+                else:
+                    cOffset = len(self.content)
+
+                if first in self.content[dOffset + 1:len(self.content)]:
+                    cOffset = min(cOffset,self.content[dOffset + 1:len(self.content)].index(first) + dOffset + 1)
+                print(dOffset," ",cOffset)
+                data+=self.content[dOffset+1:cOffset]
+            else:
+                break
+        print(len(data))
+        print(data)
+        return data
+
+
+
+
 
     def clean_file(self):
         output = []
@@ -45,7 +75,7 @@ class Assembler:
             i = i.split("#")[0]
             if re.search(r"\w", i):
                 output.append(i.strip() + "\n")
-        self.content = output
+        return output
 
     def get_data_labels(self):
         labels = {}
@@ -60,12 +90,11 @@ class Assembler:
                     else:
                         labels[match] = line
             match = re.search(r"(\.\w+) (.*)", item)
-
-            if match[1] == ".word":
-                line += 4 * len(match[2].split(","))
-            elif match[1] == ".space":
-                line += 4 * int(match[2])
-
+            if match:
+                if match[1] == ".word":
+                    line += 4 * len(match[2].split(","))
+                elif match[1] == ".space":
+                    line += 4 * int(match[2])
         return labels
 
     def get_code_labels(self):
@@ -87,13 +116,14 @@ class Assembler:
         machine_code = ""
         for i in self.data:
             match = re.search(r"(\.\w+) (.*)", i)
-            if match[1] == ".word":
-                values = match[2].split(",")
-                for j in range(0, len(values)):
-                    machine_code += bin(int(values[j])).replace("0b", "").zfill(32) + "\n"
-            elif match[1] == ".space":
-                for j in range(0, int(match[2])):
-                    machine_code += "".ljust(32, "X") + "\n"
+            if match:
+                if match[1] == ".word":
+                    values = match[2].split(",")
+                    for j in range(0, len(values)):
+                        machine_code += bin(int(values[j])).replace("0b", "").zfill(32) + "\n"
+                elif match[1] == ".space":
+                    for j in range(0, int(match[2])):
+                        machine_code += "".ljust(32, "X") + "\n"
         return machine_code
 
     def assemble_code(self):
