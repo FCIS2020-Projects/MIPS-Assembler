@@ -57,16 +57,12 @@ class Assembler:
 
                 if first in self.content[dOffset + 1:len(self.content)]:
                     cOffset = min(cOffset,self.content[dOffset + 1:len(self.content)].index(first) + dOffset + 1)
-                print(dOffset," ",cOffset)
+
                 data+=self.content[dOffset+1:cOffset]
             else:
                 break
-        print(len(data))
-        print(data)
+
         return data
-
-
-
 
 
     def clean_file(self):

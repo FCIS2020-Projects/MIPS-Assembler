@@ -48,3 +48,14 @@ for:	add $t1, $t0, $t0
 		nor $t8, $zero, $zero	# $t8 = 1's (i.e. = -1)
 		nor$s0, $s0, $t8		# $s0 = 0
 exit2:	j ret					#return
+
+.data
+	fibs: .space 12        # "array" of 12 words to contain fib values
+	size: .word  12       # size of "array"
+	one:  .word  1
+	four: .word  4
+.data
+	fibs: .space 12        # "array" of 12 words to contain fib values
+	size: .word  12       # size of "array"
+	one:  .word  1
+	four: .word  4
