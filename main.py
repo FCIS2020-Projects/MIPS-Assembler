@@ -15,6 +15,24 @@ class Assembler:
                  "$fp",
                  "$ra"]
 
+    instructions = {"add": ["R", 0, 32],
+                    "and": ["R", 0, 36],
+                    "sub": ["R", 0, 34],
+                    "nor": ["R", 0, 39],
+                    "or": ["R", 0, 37],
+                    "slt": ["R", 0, 42],
+                    "addi": ["I", 8],
+                    "lw": ["I", 35],
+                    "sw": ["I", 43],
+                    "beq": ["I", 4],
+                    "bne": ["I", 5],
+                    "j": ["J", 2]}
+
+    data_labels = {}
+    code_labels = {}
+
+    pc = 0
+
     def __init__(self, mips_file_path, data_file_path, code_file_path):
         mips_file = open(mips_file_path, "r")
         data_file = open(data_file_path, "w+")
@@ -22,12 +40,12 @@ class Assembler:
 
         self.content = mips_file.readlines()
         self.clean_file()
-        data_index = self.content.index(".data\n")
-        code_index = self.content.index(".text\n")
-        self.data = self.content[data_index + 1:code_index]
-        self.code = self.content[code_index + 1:]
-        self.code_labels = self.get_code_labels()
-        self.data_labels = self.get_data_labels()
+
+        self.data = self.GetInBetween(".data\n", ".text\n")
+        self.code = self.GetInBetween(".text\n", ".data\n")
+
+        Assembler.code_labels = self.get_code_labels()
+        Assembler.data_labels = self.get_data_labels()
 
         machine_code = self.assemble_data()
         data_file.write(machine_code)
@@ -39,9 +57,36 @@ class Assembler:
         data_file.close()
         code_file.close()
 
+    def GetInBetween(self, first, second):
+        data = []
+        dOffset = -1
+        cOffset = -1
+
+        while True:
+
+            if first in self.content[dOffset + 1:len(self.content)]:
+                dOffset = self.content[dOffset + 1:len(self.content)].index(first) + dOffset + 1
+                if dOffset == -1:
+                    dOffset = 0
+
+                if second in self.content[dOffset + 1:len(self.content)]:
+                    cOffset = self.content[dOffset + 1:len(self.content)].index(second) + dOffset + 1
+                else:
+                    cOffset = len(self.content)
+
+                if first in self.content[dOffset + 1:len(self.content)]:
+                    cOffset = min(cOffset, self.content[dOffset + 1:len(self.content)].index(first) + dOffset + 1)
+
+                data += self.content[dOffset + 1:cOffset]
+            else:
+                break
+
+        return data
+
     def clean_file(self):
         output = []
         for i in self.content:
+            i = str(i).lower()
             i = i.split("#")[0]
             if re.search(r"\w", i):
                 output.append(i.strip() + "\n")
@@ -52,13 +97,13 @@ class Assembler:
         line = 0
         regex = r"([a-zA-Z_][a-zA-Z0-9_]*):"
         for item in self.data:
-            if re.findall(regex, item):
-                matches = re.findall(regex, item)
-                for match in matches:
-                    if match in labels.keys():
-                        print("Label %s already Exist" % match)
-                    else:
-                        labels[match] = line
+            match = re.search(regex, item)
+            if match:
+                if match[1] in labels.keys():
+                    print("Label %s already Exist" % match)
+                else:
+                    labels[match[1]] = line
+
             match = re.search(r"(\.\w+) (.*)", item)
 
             if match[1] == ".word":
@@ -73,13 +118,12 @@ class Assembler:
         line = 0
         regex = r"([a-zA-Z_][a-zA-Z0-9_]*):"
         for item in self.code:
-            if re.findall(regex, item):
-                matches = re.findall(regex, item)
-                for match in matches:
-                    if match in labels.keys():
-                        print("Label %s already Exist" % match)
-                    else:
-                        labels[match] = line
+            match = re.search(regex, item)
+            if match:
+                if match[1] in labels.keys():
+                    print("Label %s already Exist" % match)
+                else:
+                    labels[match[1]] = line
             line += 1
         return labels
 
@@ -97,100 +141,149 @@ class Assembler:
         return machine_code
 
     def assemble_code(self):
-        instructions = {
-            "add": self.add_assemble,
-            "and": self.and_assemble,
-            "sub": self.sub_assemble,
-            "nor": self.nor_assemble,
-            "or": self.or_assemble,
-            "slt": self.slt_assemble,
-            "lw": self.lw_assemble,
-            "sw": self.sw_assemble,
-            "addi": self.addi_assemble,
-            # "beq": self.beq_assemble,
-            # "bne": self.bne_assemble,
-            # "j" : self.j_assemble,
-        }
         machine_code = ""
         for i in self.code:
             match = None
-            for j in instructions.keys():
+            for j in Assembler.instructions.keys():
                 match = re.search(j + "(?= )", i)
                 if match is not None:
                     break
 
             if match:
-                machine_code += instructions.get(match[0])(i[match.start():])
+                instruction_type = Assembler.instructions[match[0]][0]
+                instruction = None
+
+                if instruction_type == "R":
+                    instruction = R(i[match.start():], self.pc)
+                elif instruction_type == "I":
+                    instruction = I(i[match.start():], self.pc)
+                elif instruction_type == "J":
+                    instruction = J(i[match.start():], self.pc)
+
+                if instruction.get_operands():
+                    machine_code += instruction.machine_code()
+            else:
+                print("Compilation Error on line %d: invalid instruction" % self.pc)
+
+            self.pc += 1
         return machine_code
 
-    def Get_R_Operands(self, instruction_line):
-        line = re.split(r"\s*,\s*|\s", instruction_line)
 
-        rd = self.registers.index(str(line[1]).strip())
-        rs = self.registers.index(str(line[2]).strip())
-        rt = self.registers.index(str(line[3]).strip())
-        return rs, rt, rd
+class Instruction:
 
-    def Get_I_Operands(self, instruction_line):
-        line = {}
-        line = re.split(r" |\s*,\s*|[()]", instruction_line)
+    def __init__(self, instruction_line, line_no):
+        self.instruction_line = instruction_line
+        self.line_no = line_no
+
+    def get_operands(self):
+        pass
+
+    def machine_code(self):
+        pass
+
+
+class R(Instruction):
+
+    def __init__(self, instruction_line, line_no):
+        super().__init__(instruction_line, line_no)
+        self.op_code = 0
+        self.rd = 0
+        self.rs = 0
+        self.rt = 0
+        self.func = 0
+
+    def get_operands(self):
+        line = re.split(r"\s*,\s*|\s", self.instruction_line)
+        if line[1] not in Assembler.registers:
+            print("Compilation Error on line %d: invalid rd" % self.line_no)
+            return False
+        if line[2] not in Assembler.registers:
+            print("Compilation Error on line %d: invalid rs" % self.line_no)
+            return False
+
+        if line[3] not in Assembler.registers:
+            print("Compilation Error on line %d: invalid rt" % self.line_no)
+            return False
+        self.op_code = Assembler.instructions[line[0]][1]
+        self.rd = Assembler.registers.index(str(line[1]).strip())
+        self.rs = Assembler.registers.index(str(line[2]).strip())
+        self.rt = Assembler.registers.index(str(line[3]).strip())
+        self.func = Assembler.instructions[line[0]][2]
+        return True
+
+    def machine_code(self):
+        machine_code = bin(self.op_code).replace("0b", "").zfill(6) + bin(self.rs).replace("0b", "").zfill(5) + \
+                       bin(self.rt).replace("0b", "").zfill(5) + bin(self.rd).replace("0b", "").zfill(5) + \
+                       bin(0).replace("0b", "").zfill(5) + bin(self.func).replace("0b", "").zfill(6) + "\n"
+        return machine_code
+
+
+class I(Instruction):
+
+    def __init__(self, instruction_line, line):
+        super().__init__(instruction_line, line)
+        self.op_code = 0
+        self.rs = 0
+        self.rt = 0
+        self.im = 0
+
+    def get_operands(self):
+        line = re.split(r"\s|\s*,\s*|[()]", self.instruction_line)
         while '' in line: line.remove('')
-        #line = re.search(r'(lw|sw)\s*(\$\w*)\s*,\s*(\w*)[(](\$\w*)[)]\n', instruction_line)
-        if(line[0] == 'addi'):line[3], line[2] = line[2], line[3]
-        dict = self.get_data_labels()
-        if line[2] in dict:
-            line[2] = dict.get(line[2])
-        rs = self.registers.index(str(line[3]).strip())
-        rt = self.registers.index(str(line[1]).strip())
-        im = int(str(line[2]).strip())
-        return rs, rt, im
+        if line[0] == 'sw' or line[0] == 'lw': line[3], line[2] = line[2], line[3]
+        if line[0] == 'beq' or line[0] == 'bne': line[1], line[2] = line[2], line[1]
+        if line[2] not in Assembler.registers:
+            print("Compilation Error on line %d: invalid rs" % self.line_no)
+            return False
 
-    def R_Machine_Code(self,instruction_line, func):
-        rs, rt, rd = self.Get_R_Operands(instruction_line)
-        R_machinecode = bin(0).replace("0b", "").zfill(6) + bin(rs).replace("0b", "").zfill(5) + \
-                 bin(rt).replace("0b", "").zfill(5) + bin(rd).replace("0b", "").zfill(5) + \
-                 bin(0).replace("0b", "").zfill(5) + bin(func).replace("0b", "").zfill(6) + "\n"
-        return R_machinecode
+        if line[1] not in Assembler.registers:
+            print("Compilation Error on line %d: invalid rt" % self.line_no)
+            return False
 
-    def I_Machine_Code(self,instruction_line, func):
-        rs, rt, im = self.Get_I_Operands(instruction_line)
-        I_machinecode = bin(func).replace("0b", "").zfill(6) + bin(rs).replace("0b", "").zfill(5) + bin(rt).replace("0b", "").zfill(5) + bin(im).replace("0b", "").zfill(16) + "\n"
-        return I_machinecode
+        if line[3] not in Assembler.data_labels and line[3] not in Assembler.code_labels:
+            try:
+                self.im = int(line[3])
+            except ValueError:
+                print("Compilation Error on line %d: invalid immediate" % self.line_no)
+                return False
+        else:
+            if line[0] == 'beq' or line[0] == 'bne':
+                self.im = Assembler.code_labels.get(line[3]) - (self.line_no + 1)
+            else:
+                self.im = Assembler.data_labels.get(line[3])
 
-    def add_assemble(self,instruction_line):
-        add_machinecode = self.R_Machine_Code(instruction_line, 32)
-        return add_machinecode
+        self.op_code = Assembler.instructions[line[0]][1]
+        self.rs = Assembler.registers.index(str(line[2]).strip())
+        self.rt = Assembler.registers.index(str(line[1]).strip())
+        return True
 
-    def and_assemble(self,instruction_line):
-        and_machinecode = self.R_Machine_Code(instruction_line, 36)
-        return and_machinecode
+    def machine_code(self):
+        machine_code = bin(self.op_code).replace("0b", "").zfill(6) + bin(self.rs).replace("0b", "").zfill(5) + \
+                       bin(self.rt).replace("0b", "").zfill(5) +\
+                       bin(self.im if self.im >= 0 else self.im + (1 << 16)).replace("0b", "").zfill(16) + "\n"
+        return machine_code
 
-    def sub_assemble(self,instruction_line):
-        sub_machinecode = self.R_Machine_Code(instruction_line, 34)
-        return sub_machinecode
 
-    def nor_assemble(self,instruction_line):
-        nor_machinecode = self.R_Machine_Code(instruction_line, 39)
-        return nor_machinecode
+class J(Instruction):
 
-    def or_assemble(self,instruction_line):
-        or_machinecode = self.R_Machine_Code(instruction_line, 37)
-        return or_machinecode
+    def __init__(self, instruction_line, line_no):
+        super().__init__(instruction_line, line_no)
+        self.op_code = 0
+        self.address = 0
 
-    def slt_assemble(self,instruction_line):
-        slt_machinecode = self.R_Machine_Code(instruction_line, 42)
-        return slt_machinecode
+    def get_operands(self):
+        line = re.split(r"\s", self.instruction_line)
+        if line[1] not in Assembler.code_labels:
+            print("Compilation Error on line %d: invalid label" % self.line_no)
+            return False
+        self.op_code = Assembler.instructions[line[0]][1]
+        self.address = Assembler.code_labels.get(line[1])
+        return True
 
-    def lw_assemble(self,instruction_line):
-        lw_machinecode = self.I_Machine_Code(instruction_line, 35)
-        return lw_machinecode
-
-    def sw_assemble(self,instruction_line):
-        sw_machinecode = self.I_Machine_Code(instruction_line, 43)
-        return sw_machinecode
-
-    def addi_assemble(self,instruction_line):
-        addi_machinecode = self.I_Machine_Code(instruction_line, 8)
+    def machine_code(self):
+        machine_code = bin(self.op_code).replace("0b", "").zfill(6) +\
+                       bin(self.address).replace("0b", "").zfill(26) + "\n"
+        return machine_code
 
 
 Assembler("MIPS.asm", "data.txt", "code.txt")
